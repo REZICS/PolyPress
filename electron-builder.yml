@@ -1,0 +1,34 @@
+appId: com.polypress.app
+productName: PolyPress
+
+directories:
+  output: dist-electron
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+asar: true
+
+win:
+  icon: build/icons/app/win/icon.ico
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  uninstallerIcon: build/icons/trash/win/icon.ico
+
+mac:
+  icon: build/icons/app/mac/icon.icns
+  target:
+    - dmg
+
+linux:
+  icon: build/icons/app/png
+  target:
+    - AppImage
+  category: Utility

@@ -13,6 +13,7 @@
     "preview": "electron-vite preview",
     "pack": "pnpm run build && electron-builder --dir",
     "dist": "pnpm run build && electron-builder",
+    "icon": "bun src/script/electron-icon-maker.ts --input ./public/icons  --output ./build",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -28,47 +29,16 @@
     "@typescript-eslint/eslint-plugin": "^8.52.0",
     "@typescript-eslint/parser": "^8.52.0",
     "@vitejs/plugin-react": "^5.1.2",
+    "args": "^5.0.3",
     "electron": "^39.2.7",
     "electron-builder": "^26.4.0",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "icon-gen": "^5.0.0",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
-  },
-  "build": {
-    "appId": "com.polypress.app",
-    "productName": "PolyPress",
-    "directories": {
-      "output": "dist-electron",
-      "buildResources": "build"
-    },
-    "files": [
-      "out/**",
-      "package.json"
-    ],
-    "asar": true,
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ]
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "Utility"
-    }
   }
 }

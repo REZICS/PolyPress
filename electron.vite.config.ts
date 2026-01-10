@@ -1,6 +1,6 @@
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'node:path'
+import path, { resolve } from 'node:path'
 
 import 'dotenv/config'
 
@@ -33,6 +33,11 @@ export default defineConfig({
     plugins: [react()],
     build: {
       outDir: resolve(__dirname, 'out/renderer')
-    }
+    },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, 'src/renderer')
+        }
+      }
   }
 })
