@@ -1,4 +1,6 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+// TODO 可以增加一个高级选项，可以通过计划任务而非按钮来进行更新
+
+import React, {useCallback, useEffect, useState} from 'react';
 
 import {
   Button,
@@ -19,10 +21,10 @@ type PlatformDef = {
 };
 
 const DEFAULT_PLATFORMS: PlatformDef[] = [
-  {id: 'zhihu', name: '知乎'},
-  {id: 'juejin', name: '掘金'},
-  {id: 'csdn', name: 'CSDN'},
-  {id: 'segmentfault', name: 'SegmentFault'},
+  {id: 'rezics', name: 'REZICS'},
+  {id: 'kadokado', name: '角角者'},
+  {id: 'penana', name: 'Penana'},
+  {id: 'popo', name: 'POPO'},
 ];
 
 function formatLocal(iso: string): string {
@@ -31,19 +33,10 @@ function formatLocal(iso: string): string {
   return d.toLocaleString();
 }
 
-export default function WorkSpaceSubSidebar() {
-  const activeFilePath = workspaceStore(s => s.activeFilePath);
-
+function usePublicationPlatforms(activeFilePath: string | null | undefined) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<PublicationDocType[]>([]);
-  const [updatingIds, setUpdatingIds] = useState<Record<string, boolean>>({});
-  const [updatingAll, setUpdatingAll] = useState(false);
-
-  const isUpdatingAny = useMemo(
-    () => updatingAll || Object.values(updatingIds).some(Boolean),
-    [updatingAll, updatingIds],
-  );
 
   const reload = useCallback(async () => {
     setError(null);
@@ -51,21 +44,17 @@ export default function WorkSpaceSubSidebar() {
       setItems([]);
       return;
     }
+
     setLoading(true);
     try {
       const db = await getDb();
       const col = db.publications;
 
       // Query existing platform publish records for this file.
-      let docs = await col
-        .find()
-        .where('filePath')
-        .eq(activeFilePath)
-        .exec();
+      let docs = await col.find().where('filePath').eq(activeFilePath).exec();
 
       // Assume "published everywhere": if empty, seed default platforms.
       if (docs.length === 0) {
-        const nowIso = new Date().toISOString();
         await Promise.all(
           DEFAULT_PLATFORMS.map(p =>
             col.upsert({
@@ -73,15 +62,11 @@ export default function WorkSpaceSubSidebar() {
               filePath: activeFilePath,
               platformId: p.id,
               platformName: p.name,
-              lastSubmittedAt: nowIso,
+              lastSubmittedAt: '0000-00-00T00:00:00.000Z',
             }),
           ),
         );
-        docs = await col
-          .find()
-          .where('filePath')
-          .eq(activeFilePath)
-          .exec();
+        docs = await col.find().where('filePath').eq(activeFilePath).exec();
       }
 
       const json = docs.map(d => d.toJSON());
@@ -99,45 +84,182 @@ export default function WorkSpaceSubSidebar() {
     void reload();
   }, [reload]);
 
-  const updateOne = useCallback(
-    async (id: string) => {
-      if (!activeFilePath) return;
-      setUpdatingIds(prev => ({...prev, [id]: true}));
+  return {loading, error, setError, items, reload};
+}
+
+function RefreshButton(props: {
+  disabled: boolean;
+  loading: boolean;
+  onClick: () => void;
+}) {
+  const {disabled, loading, onClick} = props;
+  return (
+    <Button
+      size="small"
+      variant="outlined"
+      disabled={disabled}
+      onClick={onClick}
+      startIcon={
+        loading ? <CircularProgress size={14} color="inherit" /> : null
+      }
+    >
+      刷新
+    </Button>
+  );
+}
+
+function UpdateAllButton(props: {
+  disabled: boolean;
+  items: PublicationDocType[];
+  onUpdateOne: (publicationId: string) => Promise<void>;
+}) {
+  const {disabled, items, onUpdateOne} = props;
+  const [updatingAll, setUpdatingAll] = useState(false);
+
+  const updateAll = useCallback(async () => {
+    if (disabled || items.length === 0) return;
+    setUpdatingAll(true);
+    try {
+      const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+      const waitUntil = async (
+        cond: () => boolean,
+        opts?: {timeoutMs?: number; intervalMs?: number},
+      ) => {
+        const timeoutMs = opts?.timeoutMs ?? 10_000;
+        const intervalMs = opts?.intervalMs ?? 50;
+        const start = Date.now();
+        while (!cond()) {
+          if (Date.now() - start > timeoutMs) return false;
+          await sleep(intervalMs);
+        }
+        return true;
+      };
+
+      for (const it of items) {
+        const selector = `button[data-publication-update-id="${it.id}"]`;
+        const btn =
+          (document.querySelector(selector) as HTMLButtonElement | null) ??
+          null;
+
+        // Prefer "real click" on the UI button (same as user action).
+        if (btn) {
+          btn.scrollIntoView({block: 'center'});
+          btn.click();
+
+          // Wait for it to enter busy state, then finish (serial execution).
+          waitUntil(
+            () => btn.getAttribute('aria-busy') === 'true' || btn.disabled,
+            {timeoutMs: 2000, intervalMs: 25},
+          )
+            .then(() => {
+              return waitUntil(
+                () => btn.getAttribute('aria-busy') !== 'true' && !btn.disabled,
+                {timeoutMs: 10 * 60 * 1000, intervalMs: 100},
+              );
+            })
+            .catch(() => {
+              // ignore
+            });
+          continue;
+        }
+
+        // Fallback: if the button isn't in DOM, still run the same update logic.
+        await onUpdateOne(it.id);
+        await sleep(0);
+      }
+    } finally {
+      setUpdatingAll(false);
+    }
+  }, [disabled, items, onUpdateOne]);
+
+  return (
+    <Button
+      size="small"
+      variant="contained"
+      disabled={disabled || updatingAll}
+      onClick={() => void updateAll()}
+      startIcon={
+        updatingAll ? <CircularProgress size={14} color="inherit" /> : null
+      }
+    >
+      一键更新全部
+    </Button>
+  );
+}
+
+function PlatformCard(props: {
+  item: PublicationDocType;
+  onUpdateOne: (publicationId: string) => Promise<void>;
+}) {
+  const {item, onUpdateOne} = props;
+  const [updating, setUpdating] = useState(false);
+
+  const updateOne = useCallback(async () => {
+    setUpdating(true);
+    try {
+      await onUpdateOne(item.id);
+    } finally {
+      setUpdating(false);
+    }
+  }, [item.id, onUpdateOne]);
+
+  return (
+    <Card key={item.id} variant="outlined">
+      <CardContent className="space-y-1">
+        <Typography variant="subtitle2" noWrap>
+          {item.platformName}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          平台 ID：{item.platformId}
+        </Typography>
+        <Typography variant="body2">
+          最后提交：{formatLocal(item.lastSubmittedAt)}
+        </Typography>
+      </CardContent>
+      <CardActions>
+        <Button
+          size="small"
+          data-publication-update-id={item.id}
+          aria-busy={updating ? 'true' : 'false'}
+          disabled={updating}
+          onClick={() => void updateOne()}
+          startIcon={
+            updating ? <CircularProgress size={14} color="inherit" /> : null
+          }
+        >
+          更新
+        </Button>
+      </CardActions>
+    </Card>
+  );
+}
+
+export default function WorkSpaceSubSidebar() {
+  const activeFilePath = workspaceStore(s => s.activeFilePath);
+
+  const {loading, error, setError, items, reload} =
+    usePublicationPlatforms(activeFilePath);
+
+  const updateOneById = useCallback(
+    async (publicationId: string) => {
+      await new Promise(resolve => setTimeout(resolve, 2000));
       try {
         const db = await getDb();
-        const doc = await db.publications.findOne(id).exec();
+        const doc = await db.publications.findOne(publicationId).exec();
         if (!doc) return;
         const nowIso = new Date().toISOString();
-        await db.publications.upsert({...doc.toJSON(), lastSubmittedAt: nowIso});
+        await db.publications.upsert({
+          ...doc.toJSON(),
+          lastSubmittedAt: nowIso,
+        });
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
-        setUpdatingIds(prev => ({...prev, [id]: false}));
         await reload();
       }
     },
-    [activeFilePath, reload],
+    [reload, setError],
   );
-
-  const updateAll = useCallback(async () => {
-    if (!activeFilePath || items.length === 0) return;
-    setUpdatingAll(true);
-    setError(null);
-    try {
-      const db = await getDb();
-      const nowIso = new Date().toISOString();
-      await Promise.all(
-        items.map(it =>
-          db.publications.upsert({...it, lastSubmittedAt: nowIso}),
-        ),
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setUpdatingAll(false);
-      await reload();
-    }
-  }, [activeFilePath, items, reload]);
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -151,28 +273,16 @@ export default function WorkSpaceSubSidebar() {
       </div>
 
       <div className="p-2 flex items-center gap-2">
-        <Button
-          size="small"
-          variant="contained"
+        <UpdateAllButton
           disabled={!activeFilePath || items.length === 0}
-          onClick={() => void updateAll()}
-          startIcon={
-            updatingAll ? <CircularProgress size={14} color="inherit" /> : null
-          }
-        >
-          一键更新全部
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
+          items={items}
+          onUpdateOne={updateOneById}
+        />
+        <RefreshButton
           disabled={!activeFilePath}
+          loading={loading}
           onClick={() => void reload()}
-          startIcon={
-            loading ? <CircularProgress size={14} color="inherit" /> : null
-          }
-        >
-          刷新
-        </Button>
+        />
       </div>
 
       <Divider />
@@ -196,37 +306,10 @@ export default function WorkSpaceSubSidebar() {
           </Typography>
         ) : (
           items.map(it => (
-            <Card key={it.id} variant="outlined">
-              <CardContent className="space-y-1">
-                <Typography variant="subtitle2" noWrap>
-                  {it.platformName}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  平台 ID：{it.platformId}
-                </Typography>
-                <Typography variant="body2">
-                  最后提交：{formatLocal(it.lastSubmittedAt)}
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button
-                  size="small"
-                  disabled={isUpdatingAny}
-                  onClick={() => void updateOne(it.id)}
-                  startIcon={
-                    updatingIds[it.id] ? (
-                      <CircularProgress size={14} color="inherit" />
-                    ) : null
-                  }
-                >
-                  更新
-                </Button>
-              </CardActions>
-            </Card>
+            <PlatformCard key={it.id} item={it} onUpdateOne={updateOneById} />
           ))
         )}
       </div>
     </div>
   );
 }
-
