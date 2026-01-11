@@ -4,11 +4,13 @@ import {CircularProgress, Divider, Pagination, Typography} from '@mui/material';
 
 import MainLayout from '@/layout/MainLayout';
 import WorkSpaceSidebar from '@/component/Layout/WorkSpaceSidebar';
+import WorkSpaceSubSidebar from '@/component/Layout/WorkSpaceSubSidebar';
 import Dropzone from '@/component/Common/File/Dropzone';
 import {workspaceStore} from '@/store/workspaceStore';
 
 export default function WorkSpace() {
   const workspaceRoot = workspaceStore(s => s.rootPath);
+  const setActiveFilePath = workspaceStore(s => s.setActiveFilePath);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +25,7 @@ export default function WorkSpace() {
   useEffect(() => {
     // When workspace root changes, clear file selection to avoid stale paths.
     setSelectedPath(null);
+    setActiveFilePath(null);
   }, [workspaceRoot]);
 
   useEffect(() => {
@@ -82,9 +85,13 @@ export default function WorkSpace() {
       SidebarContentProps={
         <WorkSpaceSidebar
           selectedPath={selectedPath}
-          onSelectFile={path => setSelectedPath(path)}
+          onSelectFile={path => {
+            setSelectedPath(path);
+            setActiveFilePath(path);
+          }}
         />
       }
+      subSidebarContentProps={<WorkSpaceSubSidebar />}
     >
       <div className="space-y-3">
         <div>

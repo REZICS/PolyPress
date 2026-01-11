@@ -17,8 +17,14 @@ function uniqKeepOrder(list: string[]): string[] {
 export type WorkspaceState = {
   rootPath: string | null;
   recentPaths: string[];
+  /**
+   * Currently active/opened file path in workspace UI.
+   * Used by sub sidebar etc.
+   */
+  activeFilePath: string | null;
   openWorkspace: (path: string) => void;
   setRootPath: (path: string | null) => void;
+  setActiveFilePath: (path: string | null) => void;
   clearRecent: () => void;
 };
 
@@ -27,6 +33,7 @@ export const workspaceStore = create<WorkspaceState>()(
     (set, get) => ({
       rootPath: null,
       recentPaths: [],
+      activeFilePath: null,
       openWorkspace: (path: string) => {
         const next = path?.trim();
         if (!next) return;
@@ -36,11 +43,17 @@ export const workspaceStore = create<WorkspaceState>()(
         });
       },
       setRootPath: (path: string | null) => set({rootPath: path}),
+      setActiveFilePath: (path: string | null) =>
+        set({activeFilePath: path?.trim() || null}),
       clearRecent: () => set({recentPaths: []}),
     }),
     {
       name: 'workspaceStore',
-      partialize: s => ({rootPath: s.rootPath, recentPaths: s.recentPaths}),
+      partialize: s => ({
+        rootPath: s.rootPath,
+        recentPaths: s.recentPaths,
+        activeFilePath: s.activeFilePath,
+      }),
     },
   ),
 );

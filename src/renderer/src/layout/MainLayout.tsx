@@ -147,6 +147,14 @@ export default function MainLayout({
     return <SidebarContent onNavigate={onNavigate} />;
   };
 
+  const renderSubSidebar = (onNavigate?: () => void) => {
+    if (typeof subSidebarContentProps === 'function') {
+      return subSidebarContentProps({onNavigate});
+    }
+    if (subSidebarContentProps) return subSidebarContentProps;
+    return null;
+  };
+
   return (
     <div className="h-dvh w-full flex flex-col bg-background text-foreground overflow-hidden">
       {/* Thin header */}
@@ -227,7 +235,7 @@ export default function MainLayout({
         >
           <div className="h-11" />
           <div className="h-full overflow-y-auto">
-            {renderSidebar(() => setSubSidebarOpen(false))}
+            {renderSubSidebar(() => setSubSidebarOpen(false))}
           </div>
         </Sidebar>
       </div>
