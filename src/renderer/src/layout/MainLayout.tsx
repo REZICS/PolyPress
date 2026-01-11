@@ -7,6 +7,9 @@ import {Sidebar} from '@/component/ui/sidebar';
 import {cn} from '@/lib/utils';
 import {appStore} from '@/store/appStore';
 import WorkSpaceMenu from '@/component/Layout/WorkSpaceMenu';
+import HomeIcon from '@mui/icons-material/Home';
+import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
+import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 
 import FeaturedPlayListIcon from '@mui/icons-material/FeaturedPlayList';
 
@@ -17,8 +20,18 @@ type NavItem = {
 };
 
 export interface MainLayoutProps extends React.PropsWithChildren {
-  title?: string;
   headerRight?: React.ReactNode;
+  /**
+   * Custom sidebar content (desktop + mobile).
+   * - `ReactNode`: render directly
+   * - `(opts) => ReactNode`: useful when you need `onNavigate` for mobile close
+   */
+  SidebarContentProps?:
+    | React.ReactNode
+    | ((opts: {onNavigate?: () => void}) => React.ReactNode);
+  subSidebarContentProps?:
+    | React.ReactNode
+    | ((opts: {onNavigate?: () => void}) => React.ReactNode);
 }
 
 function NavLink({
@@ -55,6 +68,7 @@ function SidebarContent({
 
   const navItems: NavItem[] = useMemo(
     () => [
+      {label: 'WorkSpace', href: '/workspace', exact: true},
       {label: 'Home', href: '/', exact: true},
       {label: 'About', href: '/about', exact: true},
     ],
@@ -93,11 +107,18 @@ function SidebarContent({
 
 export default function MainLayout({
   children,
-  title = 'PolyPress',
   headerRight,
+  SidebarContentProps,
+  subSidebarContentProps,
 }: MainLayoutProps) {
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [subSidebarOpen, setSubSidebarOpen] = useState(false);
+  function toggleSidebar() {
+    setSidebarOpen(!sidebarOpen);
+  }
+  function toggleSubSidebar() {
+    setSubSidebarOpen(!subSidebarOpen);
+  }
   const theme = appStore(s => s.theme);
   const setTheme = appStore(s => s.setTheme);
 
@@ -105,27 +126,44 @@ export default function MainLayout({
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
+  const renderSidebar = (onNavigate?: () => void) => {
+    if (typeof SidebarContentProps === 'function') {
+      return SidebarContentProps({onNavigate});
+    }
+    if (SidebarContentProps) return SidebarContentProps;
+    return <SidebarContent onNavigate={onNavigate} />;
+  };
+
   return (
     <div className="h-dvh w-full flex flex-col bg-background text-foreground overflow-hidden">
       {/* Thin header */}
-      <header className="h-11 shrink-0 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="h-11 shrink-0 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-9999 fixed top-0 left-0 right-0">
         <div className="h-full px-3 flex items-center gap-2">
-          {/* Mobile menu */}
-          <Button
-            size="small"
-            className="md:hidden"
-            onClick={() => setMobileSidebarOpen(true)}
-            aria-label="Open sidebar"
-          >
-            <Menu className="size-4" />
-          </Button>
-
           <div className="min-w-0 flex-1 flex items-center gap-2">
-            <WorkSpaceMenu startIcon={<FeaturedPlayListIcon />} recentPaths={['/Users/liangjun/Documents/workspace/chatgpt-web-vite','/Users/liangjun/Documents/workspace/chatgpt-web-vite2']} />
+            <WorkSpaceMenu
+              startIcon={<FeaturedPlayListIcon />}
+              recentPaths={[
+                'D:\\Edge-Art\\Artistic-Creation-Book1',
+                '/Users/liangjun/Documents/workspace/chatgpt-web-vite2',
+              ]}
+            />
+            <Button
+              variant="text"
+              className="truncate text-md"
+              startIcon={<HomeIcon />}
+            >
+              <Link href="/">Home</Link>
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
             {headerRight}
+            <Button variant="text" size="small" onClick={toggleSidebar}>
+              <ArrowLeftIcon />
+            </Button>
+            <Button variant="text" size="small" onClick={toggleSubSidebar}>
+              <ArrowRightIcon />
+            </Button>
             <Button
               variant="text"
               size="small"
@@ -142,34 +180,38 @@ export default function MainLayout({
         </div>
       </header>
 
-      {/* Body */}
-      <div className="flex-1 min-h-0 flex">
-        {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-72 shrink-0 border-r bg-background min-h-0">
-          <div className="flex-1 overflow-y-auto">
-            <SidebarContent />
+      <div className="mb-11" />
+
+      <div className="flex flex-1 min-h-0">
+        {/* Body */}
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          mode="inline"
+          width="288px"
+          className={cn('border-r bg-background')}
+        >
+          <div className="h-11" />
+          <div className="h-full overflow-y-auto">
+            {renderSidebar(() => setSidebarOpen(false))}
           </div>
-        </aside>
-
-        {/* Mobile sidebar */}
-        <div className="md:hidden">
-          <Sidebar
-            isOpen={mobileSidebarOpen}
-            onClose={() => setMobileSidebarOpen(false)}
-            mode="fixed"
-            width="288px"
-            className={cn('border-r bg-background')}
-          >
-            <div className="h-full overflow-y-auto">
-              <SidebarContent onNavigate={() => setMobileSidebarOpen(false)} />
-            </div>
-          </Sidebar>
-        </div>
-
-        {/* Content */}
+        </Sidebar>
         <main className="flex-1 min-w-0 min-h-0 overflow-auto">
           <div className="p-4 md:p-6">{children}</div>
         </main>
+        <Sidebar
+          isOpen={subSidebarOpen}
+          onClose={() => setSubSidebarOpen(false)}
+          mode="inline"
+          width="288px"
+          className={cn('border-l bg-background')}
+          position="right"
+        >
+          <div className="h-11" />
+          <div className="h-full overflow-y-auto">
+            {renderSidebar(() => setSubSidebarOpen(false))}
+          </div>
+        </Sidebar>
       </div>
     </div>
   );

@@ -1,12 +1,39 @@
-import { contextBridge } from 'electron'
+import {contextBridge, ipcRenderer} from 'electron';
+
+export type WorkspaceTreeNode = {
+  id: string;
+  name: string;
+  path: string;
+  kind: 'file' | 'dir';
+  children?: WorkspaceTreeNode[];
+};
 
 const api = {
   versions: {
     node: process.versions.node,
     chrome: process.versions.chrome,
-    electron: process.versions.electron
-  }
-}
+    electron: process.versions.electron,
+  },
+  workspace: {
+    getCwd: (): Promise<string> => ipcRenderer.invoke('workspace:getCwd'),
+    listTree: (
+      path: string,
+      options?: {
+        maxDepth?: number;
+        maxEntries?: number;
+      },
+    ): Promise<WorkspaceTreeNode> =>
+      ipcRenderer.invoke('workspace:listTree', {path, ...options}),
+    readText: (
+      path: string,
+      options?: {maxBytes?: number},
+    ): Promise<{
+      text: string;
+      truncated: boolean;
+      bytesRead: number;
+      totalBytes: number;
+    }> => ipcRenderer.invoke('workspace:readText', {path, ...options}),
+  },
+};
 
-contextBridge.exposeInMainWorld('api', api)
-
+contextBridge.exposeInMainWorld('api', api);

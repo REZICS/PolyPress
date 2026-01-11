@@ -1,10 +1,39 @@
 export {}
 
 declare global {
+  interface WorkspaceTreeNode {
+    id: string
+    name: string
+    path: string
+    kind: 'file' | 'dir'
+    children?: WorkspaceTreeNode[]
+  }
+
   interface Window {
     api: {
-      // 这里写你真正暴露的内容
-      ping(): Promise<string>
+      versions: {
+        node: string
+        chrome: string
+        electron: string
+      }
+      workspace: {
+        getCwd(): Promise<string>
+        listTree(
+          path: string,
+          options?: {
+          maxDepth?: number
+          maxEntries?: number
+        }): Promise<WorkspaceTreeNode>
+        readText(
+          path: string,
+          options?: {maxBytes?: number},
+        ): Promise<{
+          text: string
+          truncated: boolean
+          bytesRead: number
+          totalBytes: number
+        }>
+      }
     }
   }
 }

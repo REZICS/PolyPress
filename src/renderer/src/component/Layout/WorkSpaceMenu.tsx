@@ -56,7 +56,7 @@ export default function WorkSpaceMenu({
   storageKey = 'recentWorkspaces',
   onSelect,
   onOpenFolder,
-  buttonVariant = 'outlined',
+  buttonVariant = 'text',
   buttonClassName,
 }: WorkSpaceMenuProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);

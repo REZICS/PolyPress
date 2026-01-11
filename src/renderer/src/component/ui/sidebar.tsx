@@ -13,6 +13,7 @@ interface SidebarProps {
   className?: string;
   children: React.ReactNode;
   isDragging?: boolean;
+  position?: 'left' | 'right';
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -23,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   className,
   children,
   isDragging = false,
+  position = 'left',
 }) => {
   // handle escape key
   useEffect(() => {
@@ -94,10 +96,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
       />
       <div
-        className={cn(`fixed inset-y-0 left-0 overflow-hidden`)}
+        className={cn(`fixed inset-y-0 ${position === 'left' ? 'left-0' : 'right-0'} overflow-hidden`)}
         style={{
           width,
-          transform: isOpen ? 'translateX(0)' : `translateX(-${width})`,
+          transform: isOpen ? 'translateX(0)' : position === 'left' ? `translateX(-${width})` : `translateX(${width})`,
           transition: 'transform 0.3s ease-in-out',
         }}
       >

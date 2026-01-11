@@ -1,23 +1,22 @@
-import {ThemeProvider} from '@mui/material';
-import {Route, Router, Switch} from 'wouter';
+import {Route, Router} from 'wouter';
 import {lazy} from 'react';
-import MainLayout from '@/layout/MainLayout';
 
 const Home = lazy(() => import('@/page/Home'));
 const About = lazy(() => import('@/page/About'));
+const WorkSpace = lazy(() => import('@/page/WorkSpace'));
 
 export default (
   <Router>
     <Route path="/">
-      <MainLayout>
-        <Home />
-      </MainLayout>
+      <Home />
     </Route>
 
     <Route path="/about">
-      <MainLayout>
-        <About />
-      </MainLayout>
+      <About />
+    </Route>
+
+    <Route path="/workspace">
+      <WorkSpace />
     </Route>
   </Router>
 );
