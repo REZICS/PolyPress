@@ -1,8 +1,16 @@
 {
-    "cSpell.words": [
-        "asar",
-        "icongen",
-        "nsis",
-        "polypress"
-    ]
+  "cSpell.words": [
+    "asar",
+    "Attributify",
+    "icongen",
+    "nsis",
+    "polypress",
+    "togglefullscreen",
+    "unocss",
+    "wouter"
+  ],
+  "i18n-ally.localesPaths": ["src/renderer/src/locale"],
+  "i18n-ally.enabledParsers": ["js", "ts", "json"],
+  "i18n-ally.enabledFrameworks": ["react-i18next"],
+  "i18n-ally.keystyle": "nested"
 }

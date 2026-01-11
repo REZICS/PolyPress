@@ -1,18 +1,6 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM"],
-    "jsx": "preserve",
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
-    "noEmit": true,
-    "types": ["node", "electron-vite/node"]
-  },
-  "include": ["src", "electron.vite.config.ts", "vite.config.ts"],
-  "exclude": ["out", "dist-electron", "node_modules"]
+  "files": [],
+  "references": [
+    { "path": "./src/renderer" }
+  ]
 }
-
