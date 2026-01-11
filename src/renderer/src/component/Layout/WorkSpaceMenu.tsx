@@ -44,6 +44,7 @@ export type WorkSpaceMenuProps = {
   storageKey?: string;
   onSelect?: (path: string) => void;
   onOpenFolder?: () => void;
+  onClearRecent?: () => void;
   buttonVariant?: React.ComponentProps<typeof Button>['variant'];
   buttonClassName?: string;
 };
@@ -56,6 +57,7 @@ export default function WorkSpaceMenu({
   storageKey = 'recentWorkspaces',
   onSelect,
   onOpenFolder,
+  onClearRecent,
   buttonVariant = 'text',
   buttonClassName,
 }: WorkSpaceMenuProps) {
@@ -105,8 +107,8 @@ export default function WorkSpaceMenu({
 
   const handleClear = () => {
     if (recentPaths) {
-      // controlled externally; do nothing
-      return;
+      onClearRecent?.();
+      return; // controlled externally
     }
     localStorage.setItem(storageKey, JSON.stringify([]));
     setPaths([]);

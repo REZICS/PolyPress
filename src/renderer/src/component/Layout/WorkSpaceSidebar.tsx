@@ -7,6 +7,9 @@ import {TreeItem} from '@mui/x-tree-view/TreeItem';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 
+import Dropzone from '@/component/Common/File/Dropzone';
+import {workspaceStore} from '@/store/workspaceStore';
+
 type WorkSpaceSidebarProps = {
   selectedPath?: string | null;
   onSelectFile?: (path: string) => void;
@@ -33,18 +36,25 @@ export default function WorkSpaceSidebar({
   selectedPath,
   onSelectFile,
 }: WorkSpaceSidebarProps) {
+  const rootPath = workspaceStore(s => s.rootPath);
   const [cwd, setCwd] = useState<string | null>(null);
   const [tree, setTree] = useState<WorkspaceTreeNode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const path = 'D:\\Edge-Art\\Artistic-Creation-Book1'
     const run = async () => {
       setError(null);
+      setTree(null);
       try {
         const nextCwd = await window.api.workspace.getCwd();
-        const nextTree = await window.api.workspace.listTree(path, {
+        if (!rootPath) {
+          if (cancelled) return;
+          setCwd(nextCwd);
+          return;
+        }
+
+        const nextTree = await window.api.workspace.listTree(rootPath, {
           maxDepth: 50,
           maxEntries: 100000,
         });
@@ -61,7 +71,7 @@ export default function WorkSpaceSidebar({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [rootPath]);
 
   const fileIds = useMemo(() => {
     const out = new Set<string>();
@@ -93,7 +103,7 @@ export default function WorkSpaceSidebar({
           WorkSpace
         </Typography>
         <Typography variant="caption" color="text.secondary" noWrap>
-          {cwd ?? '...'}
+          {rootPath ?? cwd ?? '...'}
         </Typography>
       </div>
 
@@ -102,6 +112,8 @@ export default function WorkSpaceSidebar({
           <Typography variant="body2" color="error">
             {error}
           </Typography>
+        ) : !rootPath ? (
+          <Dropzone className="mt-2" />
         ) : !tree ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CircularProgress size={16} />

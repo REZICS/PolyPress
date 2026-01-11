@@ -6,6 +6,7 @@ import {Button} from '@mui/material';
 import {Sidebar} from '@/component/ui/sidebar';
 import {cn} from '@/lib/utils';
 import {appStore} from '@/store/appStore';
+import {workspaceStore} from '@/store/workspaceStore';
 import WorkSpaceMenu from '@/component/Layout/WorkSpaceMenu';
 import HomeIcon from '@mui/icons-material/Home';
 import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
@@ -68,8 +69,9 @@ function SidebarContent({
 
   const navItems: NavItem[] = useMemo(
     () => [
-      {label: 'WorkSpace', href: '/workspace', exact: true},
       {label: 'Home', href: '/', exact: true},
+      {label: 'WorkSpace', href: '/workspace', exact: true},
+      {label: 'Theme', href: '/theme', exact: true},
       {label: 'About', href: '/about', exact: true},
     ],
     [],
@@ -121,6 +123,17 @@ export default function MainLayout({
   }
   const theme = appStore(s => s.theme);
   const setTheme = appStore(s => s.setTheme);
+  const workspaceRoot = workspaceStore(s => s.rootPath);
+  const recentWorkspaces = workspaceStore(s => s.recentPaths);
+  const openWorkspace = workspaceStore(s => s.openWorkspace);
+  const clearRecent = workspaceStore(s => s.clearRecent);
+
+  const [location, navigate] = useLocation();
+
+  const handleOnSelect = (path: string) => {
+    openWorkspace(path);
+    navigate(`/workspace?path=${path}`);
+  };
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -142,10 +155,15 @@ export default function MainLayout({
           <div className="min-w-0 flex-1 flex items-center gap-2">
             <WorkSpaceMenu
               startIcon={<FeaturedPlayListIcon />}
-              recentPaths={[
-                'D:\\Edge-Art\\Artistic-Creation-Book1',
-                '/Users/liangjun/Documents/workspace/chatgpt-web-vite2',
-              ]}
+              label={workspaceRoot ?? '工作区'}
+              recentPaths={recentWorkspaces}
+              onSelect={handleOnSelect}
+              onOpenFolder={async () => {
+                const selected = await window.api.workspace.selectDirectory();
+                if (!selected) return;
+                openWorkspace(selected);
+              }}
+              onClearRecent={() => clearRecent()}
             />
             <Button
               variant="text"

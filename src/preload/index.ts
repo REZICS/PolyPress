@@ -16,6 +16,10 @@ const api = {
   },
   workspace: {
     getCwd: (): Promise<string> => ipcRenderer.invoke('workspace:getCwd'),
+    selectDirectory: (): Promise<string | null> =>
+      ipcRenderer.invoke('workspace:selectDirectory'),
+    coerceToDir: (path: string): Promise<string | null> =>
+      ipcRenderer.invoke('workspace:coerceToDir', {path}),
     listTree: (
       path: string,
       options?: {

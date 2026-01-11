@@ -18,6 +18,8 @@ declare global {
       }
       workspace: {
         getCwd(): Promise<string>
+        selectDirectory(): Promise<string | null>
+        coerceToDir(path: string): Promise<string | null>
         listTree(
           path: string,
           options?: {

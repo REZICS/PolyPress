@@ -1,9 +1,10 @@
-import {app, BrowserWindow, Menu, ipcMain} from 'electron';
+import {app, BrowserWindow, Menu, ipcMain, dialog} from 'electron';
 import {dirname, join, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {menuTemplate} from './config/menuTemplate';
 import windowStateKeeper from 'electron-window-state';
 import {open, readdir, stat} from 'node:fs/promises';
+import {dirname as pathDirname} from 'node:path';
 import * as jschardet from 'jschardet';
 import * as iconv from 'iconv-lite';
 
@@ -140,6 +141,29 @@ app.whenReady().then(() => {
 
   // Workspace APIs (via preload -> ipcRenderer.invoke)
   ipcMain.handle('workspace:getCwd', () => process.cwd());
+
+  ipcMain.handle('workspace:selectDirectory', async () => {
+    const win = BrowserWindow.getFocusedWindow() ?? mainWindow ?? undefined;
+    const res = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (res.canceled) return null;
+    return res.filePaths[0] ?? null;
+  });
+
+  ipcMain.handle('workspace:coerceToDir', async (_event, args: {path: string}) => {
+    const raw = String(args?.path ?? '').trim();
+    if (!raw) return null;
+    const target = resolve(raw);
+    try {
+      const s = await stat(target);
+      if (s.isDirectory()) return target;
+      if (s.isFile()) return pathDirname(target);
+      return null;
+    } catch {
+      return null;
+    }
+  });
 
   ipcMain.handle(
     'workspace:listTree',

@@ -4,8 +4,11 @@ import {CircularProgress, Divider, Pagination, Typography} from '@mui/material';
 
 import MainLayout from '@/layout/MainLayout';
 import WorkSpaceSidebar from '@/component/Layout/WorkSpaceSidebar';
+import Dropzone from '@/component/Common/File/Dropzone';
+import {workspaceStore} from '@/store/workspaceStore';
 
 export default function WorkSpace() {
+  const workspaceRoot = workspaceStore(s => s.rootPath);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +19,11 @@ export default function WorkSpace() {
 
   const [page, setPage] = useState(1);
   const linesPerPage = 200;
+
+  useEffect(() => {
+    // When workspace root changes, clear file selection to avoid stale paths.
+    setSelectedPath(null);
+  }, [workspaceRoot]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,11 +90,16 @@ export default function WorkSpace() {
         <div>
           <Typography variant="h6">WorkSpace</Typography>
           <Typography variant="body2" color="text.secondary" noWrap>
-            {selectedPath ?? '从左侧选择一个文件来预览文本内容'}
+            {selectedPath ??
+              (workspaceRoot
+                ? '从左侧选择一个文件来预览文本内容'
+                : '请先选择/拖入一个工作区文件夹')}
           </Typography>
         </div>
 
         <Divider />
+
+        {!workspaceRoot ? <Dropzone /> : null}
 
         {error ? (
           <Typography variant="body2" color="error">

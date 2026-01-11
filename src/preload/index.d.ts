@@ -18,10 +18,15 @@ declare global {
       }
       workspace: {
         getCwd(): Promise<string>
-        listTree(options?: {
-          maxDepth?: number
-          maxEntries?: number
-        }): Promise<WorkspaceTreeNode>
+        selectDirectory(): Promise<string | null>
+        coerceToDir(path: string): Promise<string | null>
+        listTree(
+          path: string,
+          options?: {
+            maxDepth?: number
+            maxEntries?: number
+          },
+        ): Promise<WorkspaceTreeNode>
         readText(
           path: string,
           options?: {maxBytes?: number},
