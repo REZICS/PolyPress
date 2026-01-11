@@ -4,6 +4,8 @@ import {fileURLToPath} from 'node:url';
 import {menuTemplate} from './config/menuTemplate';
 import windowStateKeeper from 'electron-window-state';
 import {open, readdir, stat} from 'node:fs/promises';
+import * as jschardet from 'jschardet';
+import * as iconv from 'iconv-lite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -166,8 +168,21 @@ app.whenReady().then(() => {
         const buf = Buffer.allocUnsafe(bytesToRead);
         const {bytesRead} = await fh.read(buf, 0, bytesToRead, 0);
         const sliced = buf.subarray(0, bytesRead);
+
+        const detected = jschardet.detect(sliced);
+        const encoding = detected.encoding?.toLowerCase().trim() || 'utf-8';
+        let text: string;
+        try {
+          text = iconv.decode(sliced, encoding);
+        } catch {
+          // Fallback if encoding is unknown/unsupported.
+          text = sliced.toString('utf8');
+        }
+        // Strip BOM if present.
+        text = text.replace(/^\uFEFF/, '');
+
         return {
-          text: sliced.toString('utf8'),
+          text,
           truncated,
           bytesRead: sliced.byteLength,
           totalBytes: fileStat.size,
