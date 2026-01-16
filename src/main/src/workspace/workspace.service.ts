@@ -27,6 +27,12 @@ async function buildWorkspaceTree(
   const maxDepth = Math.max(0, options?.maxDepth ?? 50);
   const maxEntries = Math.max(1, options?.maxEntries ?? 100_000);
   let entriesCount = 0;
+  let yieldCounter = 0;
+
+  const yieldToEventLoop = async () => {
+    // Avoid starving other ipcMain handlers (main process is single-threaded).
+    await new Promise<void>(resolve => setImmediate(resolve));
+  };
 
   const walk = async (
     absPath: string,
@@ -73,6 +79,10 @@ async function buildWorkspaceTree(
       if (entry.isDirectory()) {
         entriesCount += 1;
         node.children!.push(await walk(childPath, depth + 1));
+        yieldCounter += 1;
+        if (yieldCounter % 200 === 0) {
+          await yieldToEventLoop();
+        }
         continue;
       }
 
@@ -84,6 +94,10 @@ async function buildWorkspaceTree(
           path: childPath,
           kind: 'file',
         });
+        yieldCounter += 1;
+        if (yieldCounter % 200 === 0) {
+          await yieldToEventLoop();
+        }
       }
     }
 
@@ -121,7 +135,16 @@ export async function workspaceListTreeHandler(
   _event: IpcMainInvokeEvent,
   args: {path: string; options?: {maxDepth?: number; maxEntries?: number}},
 ) {
-  return await buildWorkspaceTree(args.path, args.options);
+  const t0 = Date.now();
+  console.log('[ipc] workspace:listTree start', args);
+  try {
+    const res = await buildWorkspaceTree(args.path, args.options);
+    console.log('[ipc] workspace:listTree ok', {ms: Date.now() - t0});
+    return res;
+  } catch (e) {
+    console.error('[ipc] workspace:listTree error', e);
+    throw e;
+  }
 }
 
 export async function workspaceReadTextHandler(

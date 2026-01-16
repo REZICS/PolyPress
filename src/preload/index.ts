@@ -40,6 +40,17 @@ const api = {
       totalBytes: number;
     }> => ipcRenderer.invoke('workspace:readText', {path, ...options}),
   },
+  publication: {
+    listByFile: (payload: {workspaceRoot: string; filePath: string}) =>
+      ipcRenderer.invoke('publication:listByFile', payload),
+    touch: (payload: {workspaceRoot: string; publicationId: string}) =>
+      ipcRenderer.invoke('publication:touch', payload),
+    setRemoteUrl: (payload: {
+      workspaceRoot: string;
+      publicationId: string;
+      remoteUrl: string;
+    }) => ipcRenderer.invoke('publication:setRemoteUrl', payload),
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

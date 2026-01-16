@@ -1,6 +1,6 @@
 // TODO 可以增加一个高级选项，可以通过计划任务而非按钮来进行更新
 
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 import {
   Button,
@@ -9,11 +9,13 @@ import {
   CardContent,
   CircularProgress,
   Divider,
+  TextField,
   Typography,
 } from '@mui/material';
 
-import {getDb, getPublicationId, type PublicationDocType} from '@/db/rxdb';
+import DialogContainer from '@/component/Common/Overlay/DialogContainer';
 import {workspaceStore} from '@/store/workspaceStore';
+import {useAlertStore} from '@/store/windowAlertStore';
 
 type PlatformDef = {
   id: string;
@@ -27,61 +29,113 @@ const DEFAULT_PLATFORMS: PlatformDef[] = [
   {id: 'popo', name: 'POPO'},
 ];
 
+type PublicationItem = {
+  id: string;
+  filePath: string;
+  platformId: string;
+  platformName: string;
+  lastLocalSubmittedAt: string;
+  metadataJson: string;
+};
+
 function formatLocal(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleString();
 }
 
-function usePublicationPlatforms(activeFilePath: string | null | undefined) {
+function safeParseMetadata(metadataJson: string): {remoteUrl?: string} {
+  const s = String(metadataJson ?? '').trim();
+  if (!s) return {};
+  try {
+    const v = JSON.parse(s);
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+    const remoteUrlRaw = (v as Record<string, unknown>)['remoteUrl'];
+    const remoteUrl =
+      typeof remoteUrlRaw === 'string' ? remoteUrlRaw.trim() : '';
+    return remoteUrl ? {remoteUrl} : {};
+  } catch {
+    return {};
+  }
+}
+
+function sortByDefaultPlatforms(items: PublicationItem[]): PublicationItem[] {
+  const idx = new Map<string, number>();
+  DEFAULT_PLATFORMS.forEach((p, i) => idx.set(p.id, i));
+  return [...items].sort((a, b) => {
+    const ai = idx.get(a.platformId);
+    const bi = idx.get(b.platformId);
+    if (ai != null && bi != null) return ai - bi;
+    if (ai != null) return -1;
+    if (bi != null) return 1;
+    return a.platformId.localeCompare(b.platformId);
+  });
+}
+
+function usePublicationPlatforms(
+  workspaceRoot: string | null | undefined,
+  activeFilePath: string | null | undefined,
+) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<PublicationDocType[]>([]);
+  const [items, setItems] = useState<PublicationItem[]>([]);
+  const requestSeqRef = useRef(0);
 
   const reload = useCallback(async () => {
     setError(null);
-    if (!activeFilePath) {
+    const root = String(workspaceRoot ?? '').trim();
+    if (!root || !activeFilePath) {
       setItems([]);
+      setLoading(false);
       return;
     }
 
+    const seq = ++requestSeqRef.current;
     setLoading(true);
     try {
-      const db = await getDb();
-      const col = db.publications;
+      const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> => {
+        return new Promise<T>((resolve, reject) => {
+          const t = window.setTimeout(() => {
+            reject(new Error(`IPC timeout after ${ms}ms (publication:listByFile)`));
+          }, ms);
+          p.then(
+            v => {
+              window.clearTimeout(t);
+              resolve(v);
+            },
+            err => {
+              window.clearTimeout(t);
+              reject(err);
+            },
+          );
+        });
+      };
 
-      // Query existing platform publish records for this file.
-      let docs = await col.find().where('filePath').eq(activeFilePath).exec();
-
-      // Assume "published everywhere": if empty, seed default platforms.
-      if (docs.length === 0) {
-        await Promise.all(
-          DEFAULT_PLATFORMS.map(p =>
-            col.upsert({
-              id: getPublicationId(activeFilePath, p.id),
-              filePath: activeFilePath,
-              platformId: p.id,
-              platformName: p.name,
-              lastSubmittedAt: '0000-00-00T00:00:00.000Z',
-            }),
-          ),
-        );
-        docs = await col.find().where('filePath').eq(activeFilePath).exec();
-      }
-
-      const json = docs.map(d => d.toJSON());
-      json.sort((a, b) => a.platformName.localeCompare(b.platformName));
-      setItems(json);
+      const rows = await withTimeout(
+        window.api.publication.listByFile({
+          workspaceRoot: root,
+          filePath: activeFilePath,
+        }),
+        10_000,
+      );
+      // Ignore stale responses (activeFilePath/workspaceRoot changed rapidly).
+      if (seq !== requestSeqRef.current) return;
+      setItems(sortByDefaultPlatforms(rows));
     } catch (e) {
+      if (seq !== requestSeqRef.current) return;
       setError(e instanceof Error ? e.message : String(e));
       setItems([]);
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) setLoading(false);
     }
-  }, [activeFilePath]);
+  }, [activeFilePath, workspaceRoot]);
 
   useEffect(() => {
-    void reload();
+    // Debounce to avoid flooding IPC while active file is changing rapidly.
+    const t = window.setTimeout(() => {
+      void reload();
+    }, 200);
+    return () => window.clearTimeout(t);
   }, [reload]);
 
   return {loading, error, setError, items, reload};
@@ -110,7 +164,7 @@ function RefreshButton(props: {
 
 function UpdateAllButton(props: {
   disabled: boolean;
-  items: PublicationDocType[];
+  items: PublicationItem[];
   onUpdateOne: (publicationId: string) => Promise<void>;
 }) {
   const {disabled, items, onUpdateOne} = props;
@@ -121,49 +175,8 @@ function UpdateAllButton(props: {
     setUpdatingAll(true);
     try {
       const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
-      const waitUntil = async (
-        cond: () => boolean,
-        opts?: {timeoutMs?: number; intervalMs?: number},
-      ) => {
-        const timeoutMs = opts?.timeoutMs ?? 10_000;
-        const intervalMs = opts?.intervalMs ?? 50;
-        const start = Date.now();
-        while (!cond()) {
-          if (Date.now() - start > timeoutMs) return false;
-          await sleep(intervalMs);
-        }
-        return true;
-      };
 
       for (const it of items) {
-        const selector = `button[data-publication-update-id="${it.id}"]`;
-        const btn =
-          (document.querySelector(selector) as HTMLButtonElement | null) ??
-          null;
-
-        // Prefer "real click" on the UI button (same as user action).
-        if (btn) {
-          btn.scrollIntoView({block: 'center'});
-          btn.click();
-
-          // Wait for it to enter busy state, then finish (serial execution).
-          waitUntil(
-            () => btn.getAttribute('aria-busy') === 'true' || btn.disabled,
-            {timeoutMs: 2000, intervalMs: 25},
-          )
-            .then(() => {
-              return waitUntil(
-                () => btn.getAttribute('aria-busy') !== 'true' && !btn.disabled,
-                {timeoutMs: 10 * 60 * 1000, intervalMs: 100},
-              );
-            })
-            .catch(() => {
-              // ignore
-            });
-          continue;
-        }
-
-        // Fallback: if the button isn't in DOM, still run the same update logic.
         await onUpdateOne(it.id);
         await sleep(0);
       }
@@ -187,21 +200,87 @@ function UpdateAllButton(props: {
   );
 }
 
-function PlatformCard(props: {
-  item: PublicationDocType;
-  onUpdateOne: (publicationId: string) => Promise<void>;
+function UrlEditDialog(props: {
+  open: boolean;
+  title: string;
+  initialUrl: string;
+  onClose: () => void;
+  onSave: (url: string) => Promise<void>;
 }) {
-  const {item, onUpdateOne} = props;
+  const {open, title, initialUrl, onClose, onSave} = props;
+  const [saving, setSaving] = useState(false);
+  const [url, setUrl] = useState(initialUrl);
+
+  useEffect(() => {
+    if (!open) return;
+    setUrl(initialUrl);
+  }, [initialUrl, open]);
+
+  const save = useCallback(async () => {
+    const next = String(url ?? '').trim();
+    if (!next) {
+      useAlertStore.getState().show('请输入 URL');
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(next);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }, [onClose, onSave, url]);
+
+  return (
+    <DialogContainer open={open} onClose={onClose} title={title} maxWidth="sm">
+      <div className="space-y-3">
+        <TextField
+          label="远端 URL"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          fullWidth
+          size="small"
+          autoFocus
+        />
+        <div className="flex justify-end gap-2">
+          <Button variant="text" onClick={onClose} disabled={saving}>
+            取消
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void save()}
+            disabled={saving}
+          >
+            保存
+          </Button>
+        </div>
+      </div>
+    </DialogContainer>
+  );
+}
+
+function PlatformCard(props: {
+  item: PublicationItem;
+  remoteUrl?: string;
+  onUpdateOne: (publicationId: string) => Promise<void>;
+  onSetRemoteUrl: (publicationId: string, remoteUrl: string) => Promise<void>;
+}) {
+  const {item, remoteUrl, onUpdateOne, onSetRemoteUrl} = props;
   const [updating, setUpdating] = useState(false);
+  const [editingUrl, setEditingUrl] = useState(false);
 
   const updateOne = useCallback(async () => {
+    if (!remoteUrl) {
+      setEditingUrl(true);
+      return;
+    }
     setUpdating(true);
     try {
       await onUpdateOne(item.id);
     } finally {
       setUpdating(false);
     }
-  }, [item.id, onUpdateOne]);
+  }, [item.id, onUpdateOne, remoteUrl]);
 
   return (
     <Card key={item.id} variant="outlined">
@@ -212,9 +291,20 @@ function PlatformCard(props: {
         <Typography variant="caption" color="text.secondary" noWrap>
           平台 ID：{item.platformId}
         </Typography>
-        <Typography variant="body2">
-          最后提交：{formatLocal(item.lastSubmittedAt)}
-        </Typography>
+        {!remoteUrl ? (
+          <Typography variant="body2" color="text.secondary">
+            未配置远端 URL
+          </Typography>
+        ) : (
+          <>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              URL：{remoteUrl}
+            </Typography>
+            <Typography variant="body2">
+              最后推送：{formatLocal(item.lastLocalSubmittedAt)}
+            </Typography>
+          </>
+        )}
       </CardContent>
       <CardActions>
         <Button
@@ -227,38 +317,61 @@ function PlatformCard(props: {
             updating ? <CircularProgress size={14} color="inherit" /> : null
           }
         >
-          更新
+          {remoteUrl ? '更新' : '添加 URL'}
         </Button>
+        {remoteUrl ? (
+          <Button size="small" onClick={() => setEditingUrl(true)}>
+            编辑 URL
+          </Button>
+        ) : null}
       </CardActions>
+
+      <UrlEditDialog
+        open={editingUrl}
+        title={`${item.platformName} - 远端 URL`}
+        initialUrl={remoteUrl ?? ''}
+        onClose={() => setEditingUrl(false)}
+        onSave={url => onSetRemoteUrl(item.id, url)}
+      />
     </Card>
   );
 }
 
 export default function WorkSpaceSubSidebar() {
+  const workspaceRoot = workspaceStore(s => s.rootPath);
   const activeFilePath = workspaceStore(s => s.activeFilePath);
 
   const {loading, error, setError, items, reload} =
-    usePublicationPlatforms(activeFilePath);
+    usePublicationPlatforms(workspaceRoot, activeFilePath);
 
   const updateOneById = useCallback(
     async (publicationId: string) => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
       try {
-        const db = await getDb();
-        const doc = await db.publications.findOne(publicationId).exec();
-        if (!doc) return;
-        const nowIso = new Date().toISOString();
-        await db.publications.upsert({
-          ...doc.toJSON(),
-          lastSubmittedAt: nowIso,
-        });
+        const root = String(workspaceRoot ?? '').trim();
+        if (!root) throw new Error('workspaceRoot is required.');
+        await window.api.publication.touch({workspaceRoot: root, publicationId});
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         await reload();
       }
     },
-    [reload, setError],
+    [reload, setError, workspaceRoot],
+  );
+
+  const setRemoteUrl = useCallback(
+    async (publicationId: string, remoteUrl: string) => {
+      const root = String(workspaceRoot ?? '').trim();
+      if (!root) throw new Error('workspaceRoot is required.');
+      await window.api.publication.setRemoteUrl({
+        workspaceRoot: root,
+        publicationId,
+        remoteUrl,
+      });
+      useAlertStore.getState().show('已保存 URL');
+      await reload();
+    },
+    [reload, workspaceRoot],
   );
 
   return (
@@ -274,12 +387,12 @@ export default function WorkSpaceSubSidebar() {
 
       <div className="p-2 flex items-center gap-2">
         <UpdateAllButton
-          disabled={!activeFilePath || items.length === 0}
-          items={items}
+          disabled={!workspaceRoot || !activeFilePath || items.length === 0}
+          items={items.filter(it => !!safeParseMetadata(it.metadataJson).remoteUrl)}
           onUpdateOne={updateOneById}
         />
         <RefreshButton
-          disabled={!activeFilePath}
+          disabled={!workspaceRoot || !activeFilePath}
           loading={loading}
           onClick={() => void reload()}
         />
@@ -292,9 +405,13 @@ export default function WorkSpaceSubSidebar() {
           <Typography variant="body2" color="error">
             {error}
           </Typography>
+        ) : !workspaceRoot ? (
+          <Typography variant="body2" color="text.secondary">
+            请先打开一个工作区
+          </Typography>
         ) : !activeFilePath ? (
           <Typography variant="body2" color="text.secondary">
-            从左侧选择一个文件后，这里会显示该文章在各平台的最后提交时间。
+            从左侧选择一个文件后，这里会显示该文章在各平台的配置与推送信息。
           </Typography>
         ) : loading && items.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
@@ -305,9 +422,18 @@ export default function WorkSpaceSubSidebar() {
             暂无平台记录
           </Typography>
         ) : (
-          items.map(it => (
-            <PlatformCard key={it.id} item={it} onUpdateOne={updateOneById} />
-          ))
+          items.map(it => {
+            const {remoteUrl} = safeParseMetadata(it.metadataJson);
+            return (
+              <PlatformCard
+                key={it.id}
+                item={it}
+                remoteUrl={remoteUrl}
+                onUpdateOne={updateOneById}
+                onSetRemoteUrl={setRemoteUrl}
+              />
+            );
+          })
         )}
       </div>
     </div>

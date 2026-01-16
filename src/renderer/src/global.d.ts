@@ -41,6 +41,44 @@ declare global {
           totalBytes: number
         }>
       }
+      publication: {
+        listByFile(payload: {
+          workspaceRoot: string
+          filePath: string
+        }): Promise<
+          Array<{
+            id: string
+            filePath: string
+            platformId: string
+            platformName: string
+            lastLocalSubmittedAt: string
+            metadataJson: string
+          }>
+        >
+        touch(payload: {
+          workspaceRoot: string
+          publicationId: string
+        }): Promise<{
+          id: string
+          filePath: string
+          platformId: string
+          platformName: string
+          lastLocalSubmittedAt: string
+          metadataJson: string
+        } | null>
+        setRemoteUrl(payload: {
+          workspaceRoot: string
+          publicationId: string
+          remoteUrl: string
+        }): Promise<{
+          id: string
+          filePath: string
+          platformId: string
+          platformName: string
+          lastLocalSubmittedAt: string
+          metadataJson: string
+        } | null>
+      }
     }
   }
 }

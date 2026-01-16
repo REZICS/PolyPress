@@ -4,8 +4,14 @@ import {fileURLToPath} from 'node:url';
 import {menuTemplate} from './config/menuTemplate';
 import windowStateKeeper from 'electron-window-state';
 import {registerWorkspaceIpcHandlers} from './src/workspace';
+import {registerPublicationIpcHandlers} from './src/publication';
+import {closeAllWorkspaceDbs} from './src/db';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Electron main is built as ESM (`package.json` has `"type": "module"`).
+// Some bundled CommonJS deps (e.g. native addon loaders) still expect `__filename`.
+// Define them once at module scope so they exist for inlined CJS wrappers.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 import 'dotenv/config';
 
@@ -60,6 +66,8 @@ app.whenReady().then(() => {
     getMainWindow: () => mainWindow,
   });
 
+  registerPublicationIpcHandlers({ipcMain});
+
   createWindow(mainWindowState);
 
   app.on('activate', () => {
@@ -70,4 +78,8 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  closeAllWorkspaceDbs();
 });

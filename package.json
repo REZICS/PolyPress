@@ -8,8 +8,9 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev --watch",
+    "dev": "cross-env NODE_OPTIONS=--trace-warnings electron-vite dev --watch",
     "build": "electron-vite build",
+    "postinstall": "electron-rebuild",
     "preview": "electron-vite preview",
     "pack": "pnpm run build && electron-builder --dir",
     "dist": "pnpm run build && electron-builder",
@@ -26,9 +27,11 @@
     "@mui/x-tree-view": "^8.24.0",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
+    "better-sqlite3": "^12.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
     "electron-window-state": "^5.0.3",
     "embla-carousel-react": "^8.6.0",
     "github-markdown-css": "^5.8.1",
@@ -50,6 +53,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.0.6",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
@@ -59,8 +63,11 @@
     "@unocss/transformer-directives": "^66.5.12",
     "@vitejs/plugin-react": "^5.1.2",
     "args": "^5.0.3",
-    "electron": "^39.2.7",
+    "cross-env": "^10.1.0",
+    "drizzle-kit": "^0.31.8",
+    "electron": "39.2.7",
     "electron-builder": "^26.4.0",
+    "electron-rebuild": "^3.2.9",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.2",
     "eslint-plugin-react": "^7.37.5",
@@ -72,5 +79,10 @@
     "unocss-preset-animations": "^1.3.0",
     "unocss-preset-shadcn": "^1.0.1",
     "vite": "^7.3.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }
