@@ -1,6 +1,10 @@
 export {}
 
 declare global {
+  interface WindowEventMap {
+    'native-drop': CustomEvent<string[]>
+  }
+
   interface WorkspaceTreeNode {
     id: string
     name: string
@@ -19,6 +23,7 @@ declare global {
       workspace: {
         getCwd(): Promise<string>
         selectDirectory(): Promise<string | null>
+        nativeDropEventHandler(): Promise<void>
         coerceToDir(path: string): Promise<string | null>
         listTree(
           path: string,

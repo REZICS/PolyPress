@@ -16,6 +16,9 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import {useWorkspaceOpener} from '@/hook/useWorkspaceOpener';
+
+import {useLocation} from 'wouter';
 
 function basename(p: string): string {
   const normalized = p.replace(/\/+$/g, '').replace(/\\+$/g, '');
@@ -43,7 +46,6 @@ export type WorkSpaceMenuProps = {
   maxItems?: number;
   storageKey?: string;
   onSelect?: (path: string) => void;
-  onOpenFolder?: () => void;
   onClearRecent?: () => void;
   buttonVariant?: React.ComponentProps<typeof Button>['variant'];
   buttonClassName?: string;
@@ -56,11 +58,11 @@ export default function WorkSpaceMenu({
   maxItems = 20,
   storageKey = 'recentWorkspaces',
   onSelect,
-  onOpenFolder,
   onClearRecent,
   buttonVariant = 'text',
   buttonClassName,
 }: WorkSpaceMenuProps) {
+  const [, navigate] = useLocation();
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
   const [paths, setPaths] = useState<string[]>([]);
@@ -114,6 +116,14 @@ export default function WorkSpaceMenu({
     setPaths([]);
   };
 
+  const afterDropProcess = (dirPath: string) => {
+    navigate(`/workspace?path=${dirPath}`);
+  };
+
+  const {pickFolder} = useWorkspaceOpener({
+    afterOpen: afterDropProcess,
+  });
+
   return (
     <div className="relative inline-flex">
       <Button
@@ -159,9 +169,9 @@ export default function WorkSpaceMenu({
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {onOpenFolder ? (
+                    {pickFolder ? (
                       <Tooltip title="打开目录">
-                        <IconButton size="small" onClick={onOpenFolder}>
+                        <IconButton size="small" onClick={pickFolder}>
                           <FolderOpenIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

@@ -3,7 +3,7 @@ import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {menuTemplate} from './config/menuTemplate';
 import windowStateKeeper from 'electron-window-state';
-import {registerWorkspaceIpcHandlers} from './src/ipc/workspaceHandlers';
+import {registerWorkspaceIpcHandlers} from './src/workspace';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

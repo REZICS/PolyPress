@@ -128,7 +128,7 @@ export default function MainLayout({
   const openWorkspace = workspaceStore(s => s.openWorkspace);
   const clearRecent = workspaceStore(s => s.clearRecent);
 
-  const [location, navigate] = useLocation();
+  const [_location, navigate] = useLocation();
 
   const handleOnSelect = (path: string) => {
     openWorkspace(path);
@@ -166,11 +166,6 @@ export default function MainLayout({
               label={workspaceRoot ?? '工作区'}
               recentPaths={recentWorkspaces}
               onSelect={handleOnSelect}
-              onOpenFolder={async () => {
-                const selected = await window.api.workspace.selectDirectory();
-                if (!selected) return;
-                openWorkspace(selected);
-              }}
               onClearRecent={() => clearRecent()}
             />
             <Button

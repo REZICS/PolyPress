@@ -1,4 +1,5 @@
 import {contextBridge, ipcRenderer} from 'electron';
+import { nativeDropEventHandler } from './workspace.handler';
 
 export type WorkspaceTreeNode = {
   id: string;
@@ -18,6 +19,7 @@ const api = {
     getCwd: (): Promise<string> => ipcRenderer.invoke('workspace:getCwd'),
     selectDirectory: (): Promise<string | null> =>
       ipcRenderer.invoke('workspace:selectDirectory'),
+    nativeDropEventHandler: (): Promise<void> => nativeDropEventHandler(),
     coerceToDir: (path: string): Promise<string | null> =>
       ipcRenderer.invoke('workspace:coerceToDir', {path}),
     listTree: (
