@@ -53,6 +53,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.3)
+      esbuild:
+        specifier: ^0.27.2
+        version: 0.27.2
       github-markdown-css:
         specifier: ^5.8.1
         version: 5.8.1

@@ -16,6 +16,7 @@ import {
 import DialogContainer from '@/component/Common/Overlay/DialogContainer';
 import {workspaceStore} from '@/store/workspaceStore';
 import {useAlertStore} from '@/store/windowAlertStore';
+import {fileStore} from '@/store/fileStore';
 
 type PlatformDef = {
   id: string;
@@ -80,7 +81,6 @@ function usePublicationPlatforms(
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<PublicationItem[]>([]);
   const requestSeqRef = useRef(0);
-
   const reload = useCallback(async () => {
     setError(null);
     const root = String(workspaceRoot ?? '').trim();
@@ -349,7 +349,7 @@ export default function WorkSpaceSubSidebar() {
       try {
         const root = String(workspaceRoot ?? '').trim();
         if (!root) throw new Error('workspaceRoot is required.');
-        await window.api.publication.touch({workspaceRoot: root, publicationId});
+        await window.api.publication.touch({workspaceRoot: root, publicationId, contentPath: activeFilePath ?? ''});
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {

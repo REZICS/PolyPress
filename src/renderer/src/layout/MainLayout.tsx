@@ -114,7 +114,7 @@ export default function MainLayout({
   subSidebarContentProps,
 }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [subSidebarOpen, setSubSidebarOpen] = useState(false);
+  const [subSidebarOpen, setSubSidebarOpen] = useState(true);
   function toggleSidebar() {
     setSidebarOpen(!sidebarOpen);
   }
@@ -224,7 +224,7 @@ export default function MainLayout({
           isOpen={subSidebarOpen}
           onClose={() => setSubSidebarOpen(false)}
           mode="inline"
-          width="288px"
+          width="350px"
           className={cn('border-l bg-background')}
           position="right"
         >

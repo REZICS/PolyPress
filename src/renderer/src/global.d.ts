@@ -21,6 +21,7 @@ declare global {
         electron: string
       }
       workspace: {
+        getLastModifiedTime(path: string): Promise<string>
         getCwd(): Promise<string>
         selectDirectory(): Promise<string | null>
         nativeDropEventHandler(): Promise<void>
@@ -58,6 +59,7 @@ declare global {
         touch(payload: {
           workspaceRoot: string
           publicationId: string
+          contentPath: string
         }): Promise<{
           id: string
           filePath: string

@@ -30,6 +30,8 @@ const api = {
       },
     ): Promise<WorkspaceTreeNode> =>
       ipcRenderer.invoke('workspace:listTree', {path, ...options}),
+    getLastModifiedTime: (path: string): Promise<{ lastModifiedTime: string }> =>
+      ipcRenderer.invoke('workspace:getLastModifiedTime', {path}),
     readText: (
       path: string,
       options?: {maxBytes?: number},
@@ -43,7 +45,7 @@ const api = {
   publication: {
     listByFile: (payload: {workspaceRoot: string; filePath: string}) =>
       ipcRenderer.invoke('publication:listByFile', payload),
-    touch: (payload: {workspaceRoot: string; publicationId: string}) =>
+    touch: (payload: {workspaceRoot: string; publicationId: string; contentPath: string}) =>
       ipcRenderer.invoke('publication:touch', payload),
     setRemoteUrl: (payload: {
       workspaceRoot: string;

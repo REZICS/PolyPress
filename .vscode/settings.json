@@ -10,9 +10,13 @@
     "penana",
     "polypress",
     "popo",
+    "qtip",
     "rxdb",
     "togglefullscreen",
+    "Unmax",
+    "unmaximize",
     "unocss",
+    "updatedraft",
     "wouter"
   ],
   "i18n-ally.localesPaths": ["src/renderer/src/locale"],

@@ -22,8 +22,6 @@ export const publications = sqliteTable(
     platformId: text('platform_id').notNull(),
     platformName: text('platform_name').notNull(),
 
-    remoteUrl: text('remote_url').notNull(),
-
     /**
      * Local app's last submission time (ISO string).
      *
@@ -93,7 +91,6 @@ function initSchema(sqlite: Database.Database) {
       file_path TEXT NOT NULL,
       platform_id TEXT NOT NULL,
       platform_name TEXT NOT NULL,
-      remote_url TEXT NOT NULL DEFAULT '',
       last_local_submitted_at TEXT NOT NULL,
       metadata_json TEXT NOT NULL
     );

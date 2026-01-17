@@ -6,6 +6,7 @@ import {
   coerceToDir,
   workspaceListTreeHandler,
   workspaceReadTextHandler,
+  getLastModifiedTime,
 } from './workspace.service';
 
 export type WorkspaceTreeNode = {
@@ -35,6 +36,10 @@ export function registerWorkspaceApiHandlers(args: WorkspaceApiArgs) {
       return selectDirectory(args);
     }
   );
+
+  ipcMain.handle('workspace:getLastModifiedTime', async (_event, args: { path: string }) => {
+    return getLastModifiedTime(args.path);
+  });
 
   ipcMain.handle('workspace:coerceToDir', coerceToDir);
 

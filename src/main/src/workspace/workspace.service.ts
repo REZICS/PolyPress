@@ -147,13 +147,18 @@ export async function workspaceListTreeHandler(
   }
 }
 
+export async function getLastModifiedTime(path: string) {
+  const fileStat = await stat(path);
+  return fileStat.mtime.toISOString();
+}
+
 export async function workspaceReadTextHandler(
   _event: IpcMainInvokeEvent,
   args: {path: string; maxBytes?: number},
 ) {
   const target = resolve(args.path);
 
-  const maxBytes = Math.max(1024, args.maxBytes ?? 2 * 1024 * 1024);
+  const maxBytes = Math.max(1024, args.maxBytes ?? 5 * 1024 * 1024);
   const fileStat = await stat(target);
   if (!fileStat.isFile()) {
     throw new Error('Not a file.');

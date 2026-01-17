@@ -1,6 +1,10 @@
 import {eq} from 'drizzle-orm';
+import {BrowserWindow} from 'electron';
 
 import {getWorkspaceDb, publications, type PublicationRow} from '../db';
+import {openPublicationUpdateWindow} from './publication.updateWindow';
+
+import {workspaceReadTextHandler} from '../workspace/workspace.service';
 
 export type PlatformDef = {
   id: string;
@@ -26,6 +30,7 @@ export type ListByFileArgs = {
 export type TouchArgs = {
   workspaceRoot: string;
   publicationId: string;
+  contentPath: string;
 };
 
 export type SetRemoteUrlArgs = {
@@ -50,7 +55,7 @@ export function listPublicationsByFile(args: ListByFileArgs): PublicationRow[] {
 
   const {db} = getWorkspaceDb(workspaceRoot);
 
-  console.log('listPublicationsByFile', {workspaceRoot, filePath});
+  // console.log('listPublicationsByFile', {workspaceRoot, filePath});
 
   let items = db
     .select()
@@ -58,7 +63,7 @@ export function listPublicationsByFile(args: ListByFileArgs): PublicationRow[] {
     .where(eq(publications.filePath, filePath))
     .all();
 
-  console.log('listPublicationsByFile items', items);
+  // console.log('listPublicationsByFile items', items);
 
   // If empty, seed default platforms for this file.
   if (items.length === 0) {
@@ -84,11 +89,13 @@ export function listPublicationsByFile(args: ListByFileArgs): PublicationRow[] {
   return sortStable(items);
 }
 
-export function touchPublication(args: TouchArgs): PublicationRow | null {
+export async function touchPublication(args: TouchArgs): Promise<PublicationRow | null> {
   const workspaceRoot = String(args.workspaceRoot ?? '').trim();
   const publicationId = String(args.publicationId ?? '').trim();
+  const contentPath = String(args.contentPath ?? '').trim();
   if (!workspaceRoot) throw new Error('workspaceRoot is required.');
   if (!publicationId) throw new Error('publicationId is required.');
+  if (!contentPath) throw new Error('contentPath is required.');
 
   const {db} = getWorkspaceDb(workspaceRoot);
   const nowIso = new Date().toISOString();
@@ -104,6 +111,24 @@ export function touchPublication(args: TouchArgs): PublicationRow | null {
       .from(publications)
       .where(eq(publications.id, publicationId))
       .get() ?? null;
+
+  console.log('touchPublication row', row);
+
+  const {text} = await workspaceReadTextHandler(null as any, {path: contentPath});
+
+  // Real "update" entry point: open the dedicated updater window.
+  // Keep the DB return value stable; run UI side-effects independently.
+  const metadata = safeParseJsonObject(row?.metadataJson ?? '{}');
+  try {
+    openPublicationUpdateWindow({
+      mainWindow: BrowserWindow.getFocusedWindow(),
+      url: metadata?.remoteUrl as string || 'about:blank',
+      title: `Update: ${row?.platformName ?? ''}`.trim() || 'Update',
+      contentText: text,
+    });
+  } catch (e) {
+    console.error('[publication] open update window failed', e);
+  }
 
   return row;
 }
